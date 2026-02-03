@@ -1,6 +1,5 @@
 #Imports
 import pygame
-import copy
 import random
 
 #Initializations
@@ -30,10 +29,14 @@ class Snake:
         self.speed = speed
         self.lagpos = []
         self.eyes = [20,0,0,0]
+        self.buffer_direction = "X"
     
     #Movement and collision detection
-    def move(self, score=None, food=None,segments=None):
-        alive = True
+    def move(self):
+        global segments
+        global food
+        global score
+        global alive
         if self.direction == 'Up':
             self.y_pos -= self.speed
         elif self.direction == 'Down':
@@ -42,39 +45,44 @@ class Snake:
             self.x_pos += self.speed
         elif self.direction == "Left":
             self.x_pos -= self.speed
-        else:
-            pass
-
-        #Check if Collided with food or segment
-        for x, y in zip([self.x_pos,self.x_pos+25],[self.y_pos,self.y_pos+25]):
-            if (x>food[0]-15 and x<food[0]+15 and y>food[1]-15 and y<food[1]+15):
-                food = [random.randint(20,screen_width-20),random.randint(20,screen_height-20)]
-                score += 10
-                segments.append(Snake(screen_width/2,screen_height/2,'X',5))
-            for i in segments:
-                if (x>i.x_pos and x<i.x_pos+15 and y>i.y_pos and y<i.y_pos+15):
-                    alive = False
-            if ((x>screen_width or y>screen_height) or (x<0 or y<0)):
-                alive = False
             
-
-        return alive, score, food, segments
+        '''Collision with food'''
+        if (self.x_pos+25>food[0] and self.x_pos<food[0]+15 and self.y_pos+25>food[1] and self.y_pos<=food[1]+15):
+            food = [random.randint(20,screen_width-20),random.randint(20,screen_height-20)]
+            score += 10
+            segments.append(Snake(screen_width/2,screen_height/2,'X',5))
+    
+        '''Collision with Screen border'''
+        if ((self.x_pos>screen_width or self.y_pos>screen_height) or (self.x_pos<0 or self.y_pos<0)):
+            alive = False
+        
+        '''Collision with segments'''   
+        for i in segments[3::]:
+                if (self.x_pos+25>i.x_pos and self.x_pos<i.x_pos+25 and self.y_pos+25>i.y_pos and self.y_pos<i.y_pos+25):
+                    alive = False
     
     #Detect key presses
     def detect_keys(self):
+        
+        #Buffer the direction
         keys = pygame.key.get_pressed()
         if (keys[pygame.K_a] and self.direction!="Right"):
-            self.direction = "Left"
+            self.buffer_direction = "Left"
             self.eyes = [0,0,0,20]
         elif (keys[pygame.K_s] and self.direction != "Up"):
-            self.direction = "Down"
+            self.buffer_direction = "Down"
             self.eyes = [20,20,0,20]
         elif (keys[pygame.K_d] and self.direction != "Left"):
-            self.direction = "Right"
+            self.buffer_direction = "Right"
             self.eyes = [20,0,20,20]
         elif (keys[pygame.K_w] and self.direction != "Down"):
-            self.direction = 'Up'
+            self.buffer_direction = 'Up'
             self.eyes = [0,0,20,0]
+
+        #Implements the buffer position everytime the move is in valid position
+        if (self.x_pos%25 == 0 and self.y_pos%25 ==0):
+            self.direction = self.buffer_direction
+
     
     #Store Lag positions
     def store_pos(self):
@@ -101,7 +109,6 @@ while run:
         if (keys[pygame.K_SPACE]):
             food = [random.randint(20,screen_width-20),random.randint(20,screen_height-20)]
             score = 0
-            alive = True
             segments = []
             head = Snake(screen_width/2,screen_height/2,'X',5)
             alive = True
@@ -117,11 +124,12 @@ while run:
 
     #Screen
     screen.fill(0) 
-    for i in segments:
-       pygame.draw.rect(screen,'green',(i.x_pos,i.y_pos,25,25))
 
-    pygame.draw.rect(screen, 'red', (food[0],food[1],15,15))
-    pygame.draw.rect(screen, 'green', (head.x_pos,head.y_pos,25,25))
+    for i in segments:
+       pygame.draw.rect(screen,'green',(i.x_pos,i.y_pos,25,25)) #Draws each segment of snake
+
+    pygame.draw.rect(screen, 'red', (food[0],food[1],15,15)) #Draws food
+    pygame.draw.rect(screen, 'green', (head.x_pos,head.y_pos,25,25)) #Draws Head
     
     '''Eyes'''
     eyes = head.eyes
@@ -135,15 +143,19 @@ while run:
     score_text2 = small_text.render(f'Your final score was {score}!', True, 'yellow')
     death_text2 = small_text.render("Press space to reset!",True, 'white')
 
+
     if head.direction=='X':
         screen.blit(start_text,(screen_width/2-200,screen_height/2-50))
+    
     if alive:
+
+        '''Score'''
         screen.blit(score_text,(screen_width/2-50,10))
 
         '''Head'''
         head.detect_keys()
         head.store_pos()
-        alive, score, food, segments = head.move(score, food, segments)
+        head.move()
     
     else:
         screen.blit(score_text2,(screen_width/2-120,screen_height/2))
